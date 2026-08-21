@@ -40,6 +40,14 @@ async function main(): Promise<void> {
   }
   logger.info("Долгоживущий user-токен получен (истекает ~60 дней)");
 
+  // Диагностика: какие права реально есть у токена
+  const debug = await fetchJson(
+    `${GRAPH}/debug_token?input_token=${encodeURIComponent(userToken)}` +
+      `&access_token=${encodeURIComponent(appId + "|" + appSecret)}`
+  );
+  const granted = (debug?.data?.scopes as string[]) ?? [];
+  logger.info("Права токена", { granted });
+
   logger.info("Шаг 2: поиск страниц");
   const accounts = await fetchJson(
     `${GRAPH}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(userToken)}`
