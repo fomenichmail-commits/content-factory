@@ -1,0 +1,17 @@
+{
+  "timezone": "Europe/Moscow",
+  "entries": [
+    {
+      "hours": [9],
+      "minutes": [0],
+      "platforms": ["telegram"],
+      "topic": ["Утренний совет", "Мотивация на день"]
+    },
+    {
+      "hours": [18],
+      "minutes": [0],
+      "platforms": ["telegram", "facebook", "instagram"],
+      "topic": ["Вечерний вопрос", "Итоги дня"]
+    }
+  ]
+}

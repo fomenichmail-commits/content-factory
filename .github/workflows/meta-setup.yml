@@ -1,0 +1,56 @@
+name: Content Factory — настройка Meta (токены/ID)
+
+on:
+  workflow_dispatch:
+    inputs:
+      short_token:
+        description: "Короткий Page/User Access Token из Graph API Explorer (EAA...)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  meta-setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Настроить Meta (обмен токена, поиск ID, тест)
+        env:
+          META_APP_ID: ${{ secrets.META_APP_ID }}
+          META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
+          META_SHORT_TOKEN: ${{ github.event.inputs.short_token }}
+        run: node dist/cli/meta-setup.js
+
+      - name: Сохранить результат
+        uses: actions/upload-artifact@v4
+        with:
+          name: meta-config
+          path: data/meta.json
+          if-no-files-found: ignore
+
+      - name: Записать результат в репозиторий (data/meta.json)
+        run: |
+          git config user.name "content-factory"
+          git config user.email "actions@github.com"
+          git add data/meta.json || true
+          if git diff --cached --quiet; then
+            echo "Нет изменений"
+          else
+            git commit -m "chore: мета-конфиг (Meta setup)"
+            git push
+          fi

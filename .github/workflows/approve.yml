@@ -1,0 +1,65 @@
+name: Content Factory — обработка апрувов
+
+on:
+  schedule:
+    # Каждую минуту проверяем нажатия кнопок в тестовом канале
+    - cron: "*/1 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  approvals:
+    runs-on: ubuntu-latest
+    # Защита от параллельных запусков (getUpdates с offset)
+    concurrency:
+      group: content-factory-approvals
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Обработать апрувы/режекты
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
+          TELEGRAM_REVIEW_CHANNEL: ${{ secrets.TELEGRAM_REVIEW_CHANNEL }}
+          CONTENT_REVIEW_MODE: ${{ vars.CONTENT_REVIEW_MODE }}
+          META_PAGE_ACCESS_TOKEN: ${{ secrets.META_PAGE_ACCESS_TOKEN }}
+          META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
+          META_INSTAGRAM_ID: ${{ secrets.META_INSTAGRAM_ID }}
+          IMAGE_GENERATION: ${{ secrets.IMAGE_GENERATION }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          IMAGE_STORAGE: ${{ secrets.IMAGE_STORAGE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: node dist/approve.js
+
+      - name: Сохранить состояние в репозиторий
+        if: always()
+        run: |
+          git config user.name "content-factory"
+          git config user.email "actions@github.com"
+          git add data/ || true
+          if git diff --cached --quiet; then
+            echo "Нет изменений состояния"
+          else
+            git commit -m "chore: обновить состояние контента (approve)"
+            git push
+          fi

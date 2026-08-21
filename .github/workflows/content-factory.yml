@@ -1,0 +1,81 @@
+name: Content Factory — публикация по расписанию
+
+on:
+  schedule:
+    # Каждые 5 минут. Внутри workflow проверяем schedule.json
+    # и публикуем только если текущее время совпадает с запланированным.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # Защита от параллельных запусков (два cron не наложатся)
+    concurrency:
+      group: content-factory
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Проверить, есть ли публикация в текущий момент
+        id: check
+        run: node dist/checkSchedule.js
+        continue-on-error: true
+
+      - name: Остановиться, если сейчас не время публикации
+        if: steps.check.outcome != 'success'
+        run: echo "Сейчас нет запланированных публикаций" && exit 0
+
+      - name: Запустить пайплайн публикации
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
+          TELEGRAM_REVIEW_CHANNEL: ${{ secrets.TELEGRAM_REVIEW_CHANNEL }}
+          CONTENT_REVIEW_MODE: ${{ vars.CONTENT_REVIEW_MODE }}
+          META_PAGE_ACCESS_TOKEN: ${{ secrets.META_PAGE_ACCESS_TOKEN }}
+          META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
+          META_INSTAGRAM_ID: ${{ secrets.META_INSTAGRAM_ID }}
+          CONTENT_LLM_PROVIDER: ${{ secrets.CONTENT_LLM_PROVIDER }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ secrets.ANTHROPIC_MODEL }}
+          IMAGE_GENERATION: ${{ secrets.IMAGE_GENERATION }}
+          IMAGE_STORAGE: ${{ secrets.IMAGE_STORAGE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          CONTENT_TIMEZONE: ${{ vars.CONTENT_TIMEZONE }}
+        run: node dist/index.js
+
+      - name: Сохранить состояние в репозиторий
+        if: always()
+        run: |
+          git config user.name "content-factory"
+          git config user.email "actions@github.com"
+          git add data/ || true
+          if git diff --cached --quiet; then
+            echo "Нет изменений состояния"
+          else
+            git commit -m "chore: обновить состояние контента (publish)"
+            git push
+          fi

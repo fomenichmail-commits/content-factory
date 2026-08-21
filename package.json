@@ -1,0 +1,35 @@
+{
+  "name": "content-factory",
+  "version": "1.0.0",
+  "description": "Фабрика контента: генерация и публикация постов в Instagram, Facebook и Telegram по расписанию",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "generate": "node dist/generate.js",
+    "post:telegram": "node dist/cli/post-telegram.js",
+    "post:meta": "node dist/cli/post-meta.js",
+    "meta:info": "node dist/cli/meta-info.js",
+    "add:post": "node dist/cli/add-post.js",
+    "approve": "node dist/approve.js",
+    "approve:watch": "node dist/approve.js --watch",
+    "check:schedule": "node dist/checkSchedule.js",
+    "metrics": "node dist/metrics.js",
+    "metrics:report": "node dist/metrics.js --report",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1115.0",
+    "dotenv": "^16.4.5",
+    "sharp": "^0.35.3",
+    "undici": "^8.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  }
+}
