@@ -69,9 +69,18 @@ async function main(): Promise<void> {
 
   for (const page of accounts.data) {
     logger.info(`Страница: ${page.name} (${page.id})`);
-    const ig = await fetchJson(
+    const igRaw = await fetchJson(
       `${GRAPH}/${page.id}/instagram_accounts?fields=id,username&access_token=${encodeURIComponent(userToken)}`
     );
+    // Диагностика: если IG не найден, показываем точную ошибку API
+    if (!igRaw.data?.length && igRaw.error) {
+      logger.warn("Instagram недоступен для страницы", {
+        pageId: page.id,
+        error: igRaw.error.message,
+        code: igRaw.error.code,
+      });
+    }
+    const ig = igRaw;
     if (result === null || (ig.data?.length && !result.instagramId)) {
       result = {
         pageId: page.id,
