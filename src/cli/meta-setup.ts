@@ -103,6 +103,22 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Диагностика Marketing API: есть ли доступ к рекламным аккаунтам
+  const adAccts = await fetchJson(
+    `${GRAPH}/me/adaccounts?fields=id,name,account_status&access_token=${encodeURIComponent(result.userToken)}`
+  );
+  if (adAccts.data?.length) {
+    logger.info("Рекламные аккаунты доступны токену", {
+      count: adAccts.data.length,
+      accounts: adAccts.data.map((a: any) => `${a.id} (${a.name})`),
+    });
+  } else {
+    logger.warn("Рекламные аккаунты недоступны токену", {
+      error: adAccts.error?.message ?? "нет данных",
+      code: adAccts.error?.code,
+    });
+  }
+
   logger.info(`Шаг 3: тестовая публикация на страницу "${result.pageName}"`);
   const test = await fetchJson(
     `${GRAPH}/${result.pageId}/feed?access_token=${encodeURIComponent(result.pageToken)}`,
