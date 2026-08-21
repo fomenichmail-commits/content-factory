@@ -69,8 +69,9 @@ async function main(): Promise<void> {
 
   for (const page of accounts.data) {
     logger.info(`Страница: ${page.name} (${page.id})`);
+    const pageToken = page.access_token;
     const igRaw = await fetchJson(
-      `${GRAPH}/${page.id}/instagram_accounts?fields=id,username&access_token=${encodeURIComponent(userToken)}`
+      `${GRAPH}/${page.id}/instagram_accounts?fields=id,username&access_token=${encodeURIComponent(pageToken)}`
     );
     // Диагностика: если IG не найден, показываем точную ошибку API
     if (!igRaw.data?.length && igRaw.error) {
@@ -85,7 +86,7 @@ async function main(): Promise<void> {
       result = {
         pageId: page.id,
         pageName: page.name,
-        pageToken: page.access_token,
+        pageToken,
         instagramId: ig.data?.[0]?.id,
         instagramUsername: ig.data?.[0]?.username,
         userToken,
