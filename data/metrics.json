@@ -43,6 +43,22 @@
           "mediaCount": 69
         }
       }
+    },
+    {
+      "at": "2026-08-21T20:55:04.613Z",
+      "metrics": {
+        "telegram": {
+          "subscribers": 148
+        },
+        "facebook": {
+          "fans": 60,
+          "followers": 60
+        },
+        "instagram": {
+          "followers": 24,
+          "mediaCount": 69
+        }
+      }
     }
   ]
 }
