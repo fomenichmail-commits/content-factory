@@ -63,11 +63,13 @@ export class MetricsCollector {
   }
 
   private async collectFacebook(m: PlatformMetrics): Promise<void> {
+    const pageId = this.config.meta.pageId;
+    const token = this.config.meta.pageAccessToken;
+    if (!pageId || !token) return;
     try {
-      const pageId = this.config.meta.pageId;
       const url =
         `${GRAPH}/${pageId}/insights?metric=page_fans&period=day&` +
-        `access_token=${encodeURIComponent(this.config.meta.pageAccessToken)}`;
+        `access_token=${encodeURIComponent(token)}`;
       const res = await fetch(url);
       const data = (await res.json()) as {
         data?: { values?: { value: number }[] }[];
@@ -85,11 +87,13 @@ export class MetricsCollector {
   }
 
   private async collectInstagram(m: PlatformMetrics): Promise<void> {
+    const igId = this.config.meta.instagramId;
+    const token = this.config.meta.pageAccessToken;
+    if (!igId || !token) return;
     try {
-      const igId = this.config.meta.instagramId;
       const url =
         `${GRAPH}/${igId}?fields=followers_count,media_count&` +
-        `access_token=${encodeURIComponent(this.config.meta.pageAccessToken)}`;
+        `access_token=${encodeURIComponent(token)}`;
       const res = await fetch(url);
       const data = (await res.json()) as {
         followers_count?: number;

@@ -43,6 +43,13 @@ jobs:
           META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
           META_INSTAGRAM_ID: ${{ secrets.META_INSTAGRAM_ID }}
           IMAGE_GENERATION: ${{ secrets.IMAGE_GENERATION }}
+          IMAGE_STORAGE: ${{ secrets.IMAGE_STORAGE }}
+          IMAGE_PROVIDER: ${{ secrets.IMAGE_PROVIDER }}
+          CONTENT_MASCOT_FILE: ${{ vars.CONTENT_MASCOT_FILE }}
+          CONTENT_BANNER: ${{ vars.CONTENT_BANNER }}
+          YANDEX_API_KEY: ${{ secrets.YANDEX_API_KEY }}
+          YANDEX_KEY_ID: ${{ secrets.YANDEX_KEY_ID }}
+          YANDEX_FOLDER_ID: ${{ secrets.YANDEX_FOLDER_ID }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           IMAGE_STORAGE: ${{ secrets.IMAGE_STORAGE }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}

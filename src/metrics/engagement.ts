@@ -44,7 +44,7 @@ const GRAPH = "https://graph.facebook.com/v19.0";
 export class EngagementCollector {
   constructor(private config: Config) {}
 
-  private get token(): string {
+  private get token(): string | undefined {
     return this.config.meta.pageAccessToken;
   }
 
@@ -83,11 +83,13 @@ export class EngagementCollector {
     post: PostRecord,
     externalId: string
   ): Promise<PostEngagement | undefined> {
+    const token = this.token;
+    if (!token) return undefined;
     try {
       const url =
         `${GRAPH}/${externalId}/insights?period=lifetime&` +
         `metric=post_impressions,post_engaged_users,post_reactions_by_type_total&` +
-        `access_token=${encodeURIComponent(this.token)}`;
+        `access_token=${encodeURIComponent(token)}`;
       const res = await fetch(url);
       const data = (await res.json()) as {
         data?: {
@@ -139,10 +141,12 @@ export class EngagementCollector {
     post: PostRecord,
     externalId: string
   ): Promise<PostEngagement | undefined> {
+    const token = this.token;
+    if (!token) return undefined;
     try {
       const url =
         `${GRAPH}/${externalId}/insights?metric=impressions,reach,likes,comments,saved&` +
-        `access_token=${encodeURIComponent(this.token)}`;
+        `access_token=${encodeURIComponent(token)}`;
       const res = await fetch(url);
       const data = (await res.json()) as {
         data?: {

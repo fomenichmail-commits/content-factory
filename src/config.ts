@@ -9,11 +9,11 @@ export interface Config {
     botToken: string;
     channel: string;
   };
-  // Meta
+  // Meta (опционально: без настроенных токенов Telegram продолжит работать)
   meta: {
-    pageAccessToken: string;
-    pageId: string;
-    instagramId: string;
+    pageAccessToken?: string;
+    pageId?: string;
+    instagramId?: string;
   };
   // LLM
   llm: {
@@ -86,12 +86,9 @@ export function loadConfig(): Config {
       channel: required("TELEGRAM_CHANNEL", process.env.TELEGRAM_CHANNEL),
     },
     meta: {
-      pageAccessToken: required(
-        "META_PAGE_ACCESS_TOKEN",
-        process.env.META_PAGE_ACCESS_TOKEN
-      ),
-      pageId: required("META_PAGE_ID", process.env.META_PAGE_ID),
-      instagramId: required("META_INSTAGRAM_ID", process.env.META_INSTAGRAM_ID),
+      pageAccessToken: optional("META_PAGE_ACCESS_TOKEN", process.env.META_PAGE_ACCESS_TOKEN),
+      pageId: optional("META_PAGE_ID", process.env.META_PAGE_ID),
+      instagramId: optional("META_INSTAGRAM_ID", process.env.META_INSTAGRAM_ID),
     },
     llm: {
       provider,

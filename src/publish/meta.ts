@@ -18,7 +18,9 @@ export class MetaPublisher {
   constructor(private config: Config) {}
 
   private get token(): string {
-    return this.config.meta.pageAccessToken;
+    const t = this.config.meta.pageAccessToken;
+    if (!t) throw new Error("META_PAGE_ACCESS_TOKEN не настроен (Meta не подключена)");
+    return t;
   }
 
   /**
@@ -46,6 +48,7 @@ export class MetaPublisher {
     imageUrl?: string
   ): Promise<string> {
     const pageId = this.config.meta.pageId;
+    if (!pageId) throw new Error("META_PAGE_ID не настроен (Meta не подключена)");
     logger.info("Публикация в Facebook", { pageId });
 
     // Если есть изображение — постим фото (лучше для вовлечённости).
@@ -84,6 +87,7 @@ export class MetaPublisher {
     imageUrl?: string
   ): Promise<string> {
     const igId = this.config.meta.instagramId;
+    if (!igId) throw new Error("META_INSTAGRAM_ID не настроен (Meta не подключена)");
     if (!imageUrl) {
       throw new Error(
         "Для Instagram обязателен imageUrl. Включите генерацию изображений (IMAGE_GENERATION=on) и хранилище S3."
