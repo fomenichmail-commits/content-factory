@@ -1,0 +1,16 @@
+{
+  "snapshots": [
+    {
+      "at": "2026-08-21T20:38:32.213Z",
+      "metrics": {
+        "telegram": {
+          "subscribers": 148
+        },
+        "instagram": {
+          "followers": 24,
+          "mediaCount": 69
+        }
+      }
+    }
+  ]
+}
