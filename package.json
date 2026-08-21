@@ -15,6 +15,7 @@
     "post:meta": "node dist/cli/post-meta.js",
     "meta:info": "node dist/cli/meta-info.js",
     "marketing:calls": "node dist/cli/marketing-calls.js",
+    "review:calls": "node dist/cli/app-review-calls.js",
     "add:post": "node dist/cli/add-post.js",
     "approve": "node dist/approve.js",
     "approve:watch": "node dist/approve.js --watch",
