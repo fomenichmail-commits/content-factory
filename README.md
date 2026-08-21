@@ -1,59 +1,69 @@
 # 📦 Content Factory — фабрика контента
 
-Автоматическая генерация и публикация постов в **Telegram**, **Facebook** и **Instagram** по расписанию, с отслеживанием статуса публикаций, сбором метрик роста и отправкой отчётов.
+Автоматическая генерация и публикация постов в **Telegram**, **Facebook** и **Instagram** по расписанию, с ручным ревью-апрувом, сбором метрик роста и ежедневными отчётами.
 
 ## Как это работает
 
 ```
-schedule.json ──► checkSchedule (время? да/нет) ──► генератор контента ──► публикаторы
-                                                         │ (LLM или шаблоны)
-                                                         ▼
-                                                   state.json (статусы/ошибки)
-
-metrics (daily cron) ──► сбор метрик (TG/FB/IG) ──► metrics.json ──► отчёт в Telegram
+schedule.json (МСК + окно 10 мин)
+   │  cron GitHub Actions (каждые 5 мин)
+   ▼
+проверка времени → генератор (LLM → пул → шаблоны) → баннер (маскот + текст)
+   ▼
+тестовая группа (кнопки ✅/❌) ──апрув──► публикация в канал
+   ▼
+метрики (daily) ──► отчёт в тестовую группу
 ```
 
-- **Генерация**: гибридная — LLM (OpenAI / Anthropic) → пул готовых постов → шаблоны + ротация.
-- **Пул контента**: `content/pool.json` — заранее подготовленные посты (человеком или агентом). Публикуются по кругу с подбором по ключевым словам. Позволяет публиковать качественный контент без внешних AI-API.
-- **Изображения**: DALL-E 3 генерирует картинку для поста; для Instagram она загружается в S3 и публикуется по публичному URL.
-- **Публикация**: официальные API — Telegram Bot API и Meta Graph API.
-- **Расписание**: GitHub Actions cron каждые 5 минут; реальное время задаётся в `schedule.json`.
-- **Метрики**: ежедневный сбор подписчиков (Telegram / Facebook / Instagram), история в `data/metrics.json`, текстовый отчёт с динамикой отправляется в канал.
+- **Генерация**: гибридная — **LLM (OpenAI/Anthropic) → пул готовых постов → шаблоны + ротация**.
+- **Пул контента**: `content/pool.json` — заранее подготовленные посты. Публикуются по кругу с подбором по ключевым словам. Работает без внешних AI-API.
+- **Ревью**: посты сначала уходят в **тестовую группу** с кнопками **✅ Одобрить / ❌ Отклонить**. После апрува — публикуются в основной канал. Снимается флагом `CONTENT_REVIEW_MODE=off`.
+- **Изображения**: баннер («маскот + текст поста») собирается локально через sharp (бесплатно, без API); опционально YandexART.
+- **Расписание**: GitHub Actions cron; реальное время в `schedule.json` (часовой пояс + окно `PUBLICATION_WINDOW_MIN` для компенсации задержек cron).
+- **Метрики**: ежедневный сбор подписчиков (TG/FB/IG) + вовлечённости по постам; отчёт приходит в тестовую группу.
+
+## Текущий статус
+
+| Компонент | Статус |
+|---|---|
+| Telegram (публикация, ревью, баннер) | ✅ работает |
+| GitHub Actions (расписание, CI, тесты) | ✅ работает |
+| Картинки — баннер (маскот + текст) | ✅ работает |
+| Метрики (подписчики TG/FB/IG) | ✅ работает, отчёты в тестовую группу |
+| Instagram MCP (профиль, чтение) | ✅ подключён |
+| **Facebook / Instagram публикация** | ⏳ ждёт App Review или Postiz |
+| LLM-генерация текста | ⏳ OpenAI — нет квоты (иногда `insufficient_quota`); контент из пула |
 
 ## Структура проекта
 
 ```
 ├── .github/workflows/
-│   ├── content-factory.yml            # публикация по расписанию (каждые 5 мин)
-│   └── metrics.yml                    # сбор метрик + отчёт (ежедневно)
-├── schedule.json                      # расписание публикаций
-├── content/pool.json                  # пул готовых постов (ротация)
+│   ├── content-factory.yml      # публикация по расписанию
+│   ├── approve.yml              # обработка апрувов (кнопки ✅/❌)
+│   ├── metrics.yml              # сбор метрик + отчёт
+│   ├── meta-setup.yml           # настройка Meta (токены/ID)
+│   ├── meta-check.yml           # проверка публикации Meta
+│   ├── app-review-calls.yml     # тестовые вызовы для App Review
+│   ├── marketing-calls.yml      # набор 500 вызовов Marketing API
+├── schedule.json                # расписание публикаций (время/платформы/темы)
+├── content/pool.json            # пул готовых постов (ротация)
+├── postiz/                      # Postiz self-host конфиг (опция для Instagram)
+├── docs/app-review.md           # готовая заявка на App Review Meta
+├── test/                        # vitest unit-тесты (61 шт., покрытие ~88%)
 ├── src/
-│   ├── config.ts                      # загрузка конфигурации из .env/секретов
-│   ├── scheduler.ts                   # чтение schedule.json, поиск «наступивших» слотов
-│   ├── checkSchedule.ts               # CI-проверка «сейчас время публикации?»
-│   ├── index.ts                       # основной пайплайн
-│   ├── generate.ts                    # CLI: сгенерировать пост
-│   ├── metrics.ts                     # CLI: собрать метрики (+ --report)
-│   ├── content/
-│   │   ├── generator.ts               # генерация текста (LLM → пул → шаблоны)
-│   │   ├── image.ts                   # генерация изображений (DALL-E 3)
-│   │   ├── pool.ts                    # пул постов + ротация
-│   │   └── templates.ts               # библиотека шаблонов
-│   ├── publish/
-│   │   ├── telegram.ts                # публикация в Telegram (текст + фото)
-│   │   └── meta.ts                    # публикация в Facebook/Instagram
-│   ├── storage/uploader.ts            # загрузка изображений в S3
-│   ├── metrics/
-│   │   ├── collector.ts               # сбор подписчиков с платформ
-│   │   ├── engagement.ts              # вовлечённость по постам + история
-│   │   ├── report.ts                  # формирование текстового отчёта
-│   │   └── store.ts                   # история метрик (metrics.json)
-│   ├── cli/
-│   │   ├── post-telegram.ts           # ручная публикация в Telegram
-│   │   └── post-meta.ts               # ручная публикация в Meta
-│   └── utils/ (logger, store)         # логирование и состояние
-└── data/                              # state.json + metrics.json + engagement.json (генерируются)
+│   ├── config.ts                # загрузка конфигурации из .env/секретов
+│   ├── scheduler.ts             # расписание + часовой пояс + окно публикации
+│   ├── checkSchedule.ts         # CI-проверка «сейчас время публикации?»
+│   ├── index.ts                 # основной пайплайн (direct / review)
+│   ├── approve.ts               # CLI: обработка кнопок апрува (+ --watch)
+│   ├── generate.ts              # CLI: сгенерировать пост
+│   ├── metrics.ts               # CLI: метрики (+ --report)
+│   ├── content/ (generator, pool, templates, text, banner, mascot, yandexArt, imageSource, image)
+│   ├── publish/ (telegram, meta, pipeline)
+│   ├── metrics/ (collector, engagement, report, store)
+│   ├── review/service.ts        # ревью-публикация + обработка кнопок
+│   └── utils/ (http, proxyFetch, multipart, logger, store)
+└── data/                        # state.json, metrics.json, engagement.json (генерируются, коммитятся)
 ```
 
 ## Быстрый старт
@@ -64,152 +74,139 @@ cp .env.example .env      # заполните значения (см. ниже)
 npm run build
 npm run generate "Тема поста"        # проверить генерацию
 npm run post:telegram "Тема"         # опубликовать в Telegram вручную
-npm run post:meta instagram "Тема"   # опубликовать в Instagram вручную
-npm run add:post "Тема" "Текст"      # добавить готовый пост в пул
-npm run metrics                      # собрать метрики
-npm run metrics:report               # собрать + отправить отчёт в канал
 npm run check:schedule               # проверить, есть ли публикация сейчас
+npm run metrics                      # собрать метрики
+npm run metrics:report               # собрать + отправить отчёт в тестовую группу
+npm run approve:watch                # фоновый обработчик кнопок (локально)
+npm run test                         # unit-тесты
+npm run test:coverage                # тесты + отчёт по покрытию
 node dist/index.js                   # запустить полный пайплайн вручную
 ```
 
-## Настройка API-доступов
+## Переменные окружения
 
-### 1. Telegram
-1. Создайте бота через [@BotFather](https://t.me/BotFather) → `/newbot`, получите **токен**.
-2. Создайте канал (или используйте существующий).
-3. Добавьте бота **администратором** канала (Settings → Administrators → Add admin → бот).
-4. В `.env`:
-   ```
-   TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
-   TELEGRAM_CHANNEL=@mychannel
-   ```
-   Для подсчёта подписчиков нужны права бота читать участников канала.
-
-### 2. Facebook (Meta Graph API)
-1. Создайте приложение в [Meta for Developers](https://developers.facebook.com/apps) (тип **Business**).
-2. Добавьте продукт **Facebook Login** и **Instagram Graph API**.
-3. Свяжите приложение со **страницей** (Business Manager) и **Instagram-аккаунтом**.
-4. Получите **long-lived Page Access Token** (см. [документацию](https://developers.facebook.com/docs/pages-api/overview)):
-   - User Token → `/oauth/access_token?grant_type=fb_exchange_token` → long-lived.
-5. В `.env`:
-   ```
-   META_PAGE_ACCESS_TOKEN=EAA...
-   META_PAGE_ID=123456789
-   META_INSTAGRAM_ID=987654321
-   ```
-   > `META_INSTAGRAM_ID` — числовой ID Instagram-профиля (не @username). Найти: Graph API Explorer → `/{page_id}/instagram_accounts`.
-   > Для метрик (page_fans, followers_count) токен должен иметь права `pages_read_engagement`, `instagram_basic`, `business_management`.
-
-### 3. Изображения для постов
-
-Режим картинок задаётся приоритетом в `resolvePostImage`:
-
-1. **Баннер (маскот + текст поста)** — локально, бесплатно, без API:
-   ```
-   CONTENT_BANNER=on
-   CONTENT_MASCOT_FILE=/path/to/mascot.jpg
-   ```
-2. **Модификация маскота через YandexART** — маскот модифицируется промтом под тему поста (не рисуется новая картинка):
-   ```
-   CONTENT_BANNER=off
-   IMAGE_GENERATION=on
-   IMAGE_PROVIDER=yandex
-   CONTENT_MASCOT_FILE=/path/to/mascot.jpg
-   YANDEX_API_KEY=...
-   YANDEX_FOLDER_ID=...
-   ```
-3. **Маскот как есть** — просто вставляем файл маскота.
-4. **Генерация с нуля** (DALL-E / YandexART) — когда маскота нет.
-
-Для Meta (Instagram/Facebook) нужен публичный URL изображения → S3-хранилище:
+### Telegram
 ```
+TELEGRAM_BOT_TOKEN=123456:ABC-DEF...   # от @BotFather, бот — админ канала
+TELEGRAM_CHANNEL=@dcl_x                # основной канал
+TELEGRAM_REVIEW_CHANNEL=-1001827978177  # тестовая группа (ревью + отчёты) — опционально
+```
+
+### Режим ревью
+```
+CONTENT_REVIEW_MODE=on            # on = посты на проверку в тестовую группу
+PUBLICATION_WINDOW_MIN=10         # окно ловли задержек cron (минуты)
+```
+
+### Meta (опционально — пока не подключена для постинга)
+```
+META_APP_ID=...
+META_APP_SECRET=...
+META_PAGE_ID=...
+META_INSTAGRAM_ID=...
+META_PAGE_ACCESS_TOKEN=EAA...      # long-lived Page Access Token
+META_AD_ACCOUNT=act_...            # рекламный аккаунт для Marketing API тестов
+```
+
+### LLM (опционально)
+```
+CONTENT_LLM_PROVIDER=openai    # openai | anthropic | none
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+# OPENAI_BASE_URL=https://api.openai.com/v1   # шлюз/прокси, если регион заблокирован
+# ANTHROPIC_API_KEY=...
+# ANTHROPIC_MODEL=claude-sonnet-4-20250514
+```
+
+### Изображения
+```
+CONTENT_BANNER=on                # баннер: маскот + текст поста (локально, бесплатно)
+CONTENT_MASCOT_FILE=assets/mascot.jpg
+# Опционально YandexART (модификация маскота):
+IMAGE_GENERATION=on
+IMAGE_PROVIDER=yandex
+YANDEX_API_KEY=...
+YANDEX_KEY_ID=...
+YANDEX_FOLDER_ID=...
+# S3 (для Meta нужен публичный URL):
 IMAGE_STORAGE=s3
 AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
 AWS_REGION=us-east-1
 S3_BUCKET=your-bucket-name
 ```
-Bucket должен разрешать `public-read` объекты. Без S3: Telegram получит фото (multipart),
-а Instagram/Facebook — без изображения.
 
-### 4. LLM (генерация контента) — опционально
+### Часовой пояс / прочее
 ```
-CONTENT_LLM_PROVIDER=openai      # или anthropic / none
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini
-# OPENAI_BASE_URL=https://api.openai.com/v1   # OpenAI-совместимый шлюз/прокси
-# ANTHROPIC_API_KEY=sk-ant-...
-# ANTHROPIC_MODEL=claude-sonnet-4-20250514
+CONTENT_TIMEZONE=Europe/Moscow
 ```
-Стратегия генерации: **LLM → пул → шаблоны**. При `none`, ошибке LLM или гео-блокировке
-API используется пул готовых постов (`content/pool.json`), а при пустом пуле — шаблоны.
-
-> Если OpenAI API недоступен в вашем регионе (ошибка `unsupported_country_region_territory`),
-> подключите OpenAI-совместимый шлюз через `OPENAI_BASE_URL`, либо используйте пул контента
-> (посты заранее готовит человек или агент): `npm run add:post "Тема" "Текст поста"`.
 
 ## Расписание
 
-`schedule.json`:
+`schedule.json` (время в часовом поясе `timezone`):
 ```json
 {
   "timezone": "Europe/Moscow",
   "entries": [
-    { "hours": [9, 13, 18], "minutes": [0],
-      "platforms": ["telegram", "facebook", "instagram"],
-      "topic": ["Тема 1", "Тема 2"] }
+    { "hours": [9],  "minutes": [0], "platforms": ["telegram"],
+      "topic": ["Утренний совет", "Мотивация на день"] },
+    { "hours": [18], "minutes": [0], "platforms": ["telegram", "facebook", "instagram"],
+      "topic": ["Вечерний вопрос", "Итоги дня"] }
   ]
 }
 ```
-- `hours`/`minutes` — когда публиковать (в указанном часовом поясе).
-- `topic` — строка или массив (для ротации тем).
+- `hours`/`minutes` — когда публиковать.
+- `topic` — строка или массив для ротации.
 - `platforms` — куда публиковать.
 
-## Метрики и отслеживание роста
+## Метрики и отчёты
 
-- `npm run metrics` — собрать подписчиков с платформ + вовлечённость по опубликованным постам, сохранить в `data/metrics.json` и `data/engagement.json`.
-- `npm run metrics:report` — собрать + отправить отчёт в Telegram-канал с динамикой:
+- `npm run metrics` — собрать подписчиков (TG/FB/IG) + вовлечённость по опубликованным постам → `data/metrics.json`, `data/engagement.json`.
+- `npm run metrics:report` — собрать и отправить отчёт **в тестовую группу** (или `TELEGRAM_CHANNEL`, если review-канал не задан):
   ```
-  📊 Отчёт по каналам — 21.08.2026, 12:00
-  • Telegram: 1500 подписчиков (+80, 5.6%)
-  • Facebook: 800 фанов (+10, 1.3%)
-  • Instagram: 320 подписчиков (+20, 6.7%)
+  📊 Отчёт по каналам — 21.08.2026, 23:00
+  • Telegram: 148 подписчиков (+1, 0.7%)
+  • Facebook: 60 фанов (новое)
+  • Instagram: 24 подписчиков (без изменений), 69 постов
 
-  📝 Вовлечённость по постам:
-  • [TG] Утренний совет… — 432 просмотров
-  • [IG] Новость недели — 1200 просмотров, 34 реакций, 7 комм., охват 900
-  • [FB] Вечерний вопрос — 500 просмотров, 12 реакций
+  📝 Вовлечённость по постам: ...
   ```
-- Workflow `.github/workflows/metrics.yml` запускает это ежедневно (20:00 UTC).
+- Workflow `.github/workflows/metrics.yml` — ежедневно (20:00 UTC / 23:00 МСК).
 
 **Вовлечённость по платформам:**
-- **Telegram**: просмотры захватываются при публикации (Bot API не отдаёт историю просмотров постов). Для полной статистики нужен сторонний аналитик-бот.
-- **Facebook**: `/{post_id}/insights` — показы, реакции, вовлечённые пользователи.
-- **Instagram**: `/{ig_media_id}/insights` — показы, охват, лайки, комментарии, сохранения (аккаунт должен быть Business/Creator, нужны права `instagram_manage_insights`).
+- **Telegram**: просмотры фиксируются при публикации (Bot API не отдаёт историю).
+- **Facebook** / **Instagram**: метрики и вовлечённость — после App Review (права `instagram_manage_insights` и др.).
 
 ## Деплой на GitHub Actions
 
-1. Создайте репозиторий и запушите проект.
-2. GitHub → **Settings → Secrets and variables → Actions** → добавьте секреты:
-   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHANNEL`, `META_PAGE_ACCESS_TOKEN`, `META_PAGE_ID`,
-   `META_INSTAGRAM_ID`, `CONTENT_LLM_PROVIDER`, `OPENAI_API_KEY`, `OPENAI_MODEL`,
-   `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `IMAGE_GENERATION`, `OPENAI_IMAGE_MODEL`,
-   `IMAGE_STORAGE`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`.
-   В **Variables** добавьте `CONTENT_TIMEZONE`.
-3. Workflow `.github/workflows/content-factory.yml` запускается каждые 5 минут,
-   проверяет `schedule.json` и публикует только в запланированные моменты.
-   Workflow `metrics.yml` — ежедневно собирает метрики и шлёт отчёт.
+1. Создайте репозиторий, запушьте проект.
+2. GitHub → **Settings → Secrets and variables → Actions** → добавьте секреты из таблицы выше
+   (Telegram обязательны; Meta/LLM/Изображения — по мере необходимости; в **Variables** — `CONTENT_TIMEZONE`, `CONTENT_REVIEW_MODE`, `CONTENT_MASCOT_FILE`, `CONTENT_BANNER`, `PUBLICATION_WINDOW_MIN`).
+3. Workflow `content-factory.yml` публикует по расписанию (review-режим), `approve.yml` обрабатывает кнопки, `metrics.yml` шлёт отчёты.
 
-> **Про состояние**: GitHub Actions — stateless, поэтому `data/state.json` и `data/metrics.json`
-> собираются в artifact после каждого запуска. Для долгого хранения истории подключите
-> хранилище (S3/внешний API) в `src/utils/store.ts` и `src/metrics/store.ts`.
+> **Про состояние**: GitHub Actions stateless, поэтому `data/` коммитится обратно в репозиторий
+> после каждого запуска (пермишены `contents: write`). Всё в `data/` — без секретов.
 
-## Roadmap
+## Instagram (постинг) — варианты
 
-- [x] Генерация и публикация постов
-- [x] Расписание (GitHub Actions cron)
-- [x] Генерация изображений (DALL-E 3) для Instagram/Facebook/Telegram
-- [x] Сбор метрик роста (подписчики) и отчёты
-- [x] Метрики вовлечённости по постам (показы, реакции, лайки, комментарии)
-- [ ] Автоподбор тем по анализу вовлечённости
-- [ ] Двухфакторная валидация контента перед публикацией
+Публикация в Instagram/Facebook через Meta Graph API требует прав, которые выдаются **только через App Review** (`pages_manage_posts`, `instagram_content_publish`). Альтернативы:
+
+1. **App Review**: заявка готова в `docs/app-review.md`. Подаётся на permissions → «Request advanced access». После одобрения — постинг работает автоматически.
+2. **Postiz** (self-host `postiz/` или Cloud): использует официальный OAuth Instagram. Через **Instagram Standalone** можно подключить аккаунт как Instagram Tester без полного App Review.
+3. **IG MCP** (`@mcpware/instagram-mcp`): чтение профиля работает; постинг — после App Review.
+
+## Тесты
+
+- `npm run test` — 61 unit-тест (vitest).
+- `npm run test:coverage` — покрытие **~88%** (scheduler, text, templates, pool, generator, yandexArt, metrics/collector/report).
+- Тесты гоняются автоматически в CI при каждом пуше (шаг «Unit-тесты»).
+
+## Ручные CLI
+
+```
+npm run approve              # обработать нажатия кнопок (для CI)
+npm run approve:watch        # фоновый обработчик каждые 30 сек (локально)
+npm run add:post "Тема" "Текст"   # добавить пост в пул
+npm run post:meta facebook "Тема"  # ручная публикация в FB/IG
+npm run meta:info             # показать страницы/Instagram по токену
+```
