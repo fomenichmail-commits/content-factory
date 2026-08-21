@@ -36,6 +36,8 @@ jobs:
 
       - name: Проверить, есть ли публикация в текущий момент
         id: check
+        env:
+          CONTENT_TIMEZONE: ${{ vars.CONTENT_TIMEZONE }}
         run: node dist/checkSchedule.js
         continue-on-error: true
 

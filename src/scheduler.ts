@@ -54,14 +54,16 @@ export function getSchedulePath(): string {
 
 /**
  * Найти записи расписания, которые «наступили» в заданный момент времени.
- * Сравнение ведётся по часу и минуте (без секунд).
+ * Сравнение ведётся по часу и минуте (без секунд) в часовом поясе расписания.
  */
 export function entriesAt(
   schedule: ScheduleFile,
-  now: Date
+  now: Date,
+  timezone?: string
 ): { entry: ScheduleEntry; topic: string }[] {
-  const h = now.getHours();
-  const m = now.getMinutes();
+  const tz = schedule.timezone ?? timezone ?? process.env.CONTENT_TIMEZONE;
+  const h = getHourInTz(now, tz);
+  const m = getMinuteInTz(now, tz);
   const result: { entry: ScheduleEntry; topic: string }[] = [];
 
   for (const entry of schedule.entries) {
@@ -73,4 +75,36 @@ export function entriesAt(
     result.push({ entry, topic });
   }
   return result;
+}
+
+/** Час в указанном часовом поясе (формат IANA, например "Europe/Moscow"). */
+function getHourInTz(date: Date, tz?: string): number {
+  if (!tz) return date.getHours();
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      minute: "numeric",
+      hour12: false,
+    }).formatToParts(date);
+    return Number(parts.find((p) => p.type === "hour")?.value || 0) % 24;
+  } catch {
+    return date.getHours();
+  }
+}
+
+/** Минута в указанном часовом поясе. */
+function getMinuteInTz(date: Date, tz?: string): number {
+  if (!tz) return date.getMinutes();
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      minute: "numeric",
+      hour12: false,
+    }).formatToParts(date);
+    return Number(parts.find((p) => p.type === "minute")?.value || 0);
+  } catch {
+    return date.getMinutes();
+  }
 }
