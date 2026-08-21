@@ -43,12 +43,14 @@ async function main(): Promise<void> {
     console.log(report);
 
     try {
+      // Отчёт отправляем в тестовый (ревью) канал, если он задан
+      const reportChat = config.telegram.reviewChannel ?? config.telegram.channel;
       const res = await requestTelegramApi(
         config.telegram.botToken,
         "/sendMessage",
         "POST",
         {
-          chat_id: config.telegram.channel,
+          chat_id: reportChat,
           text: `📈 ${report}`,
           parse_mode: "HTML",
         }
@@ -57,7 +59,7 @@ async function main(): Promise<void> {
       if (res.status < 200 || res.status >= 300 || !data.ok) {
         throw new Error(`Отчёт не отправлен: ${data.description ?? res.status}`);
       }
-      logger.info("Отчёт отправлен в Telegram");
+      logger.info("Отчёт отправлен в Telegram", { chat: reportChat });
     } catch (err) {
       logger.warn("Не удалось отправить отчёт в Telegram (метрики уже сохранены)", err);
     }

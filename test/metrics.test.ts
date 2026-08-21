@@ -32,10 +32,10 @@ describe("metrics/collector", () => {
     expect(snap.metrics.telegram?.subscribers).toBe(148);
   });
 
-  it("собирает Facebook фаны (page_fans)", async () => {
+  it("собирает Facebook фаны (fan_count)", async () => {
     (globalThis.fetch as any).mockResolvedValue({
       ok: true,
-      json: async () => ({ data: [{ values: [{ value: 800 }] }] }),
+      json: async () => ({ fan_count: 800, followers_count: 810 }),
     });
     const c = new MetricsCollector(cfg());
     const snap = await c.collect();
@@ -74,7 +74,7 @@ describe("metrics/collector", () => {
   it("собирает все три платформы сразу", async () => {
     (globalThis.fetch as any).mockResolvedValue({
       ok: true,
-      json: async () => ({ data: [{ values: [{ value: 800 }] }], followers_count: 320, media_count: 69 }),
+      json: async () => ({ fan_count: 800, followers_count: 810, followers_count: 320, media_count: 69 }),
     });
     const c = new MetricsCollector(cfg());
     const snap = await c.collect();

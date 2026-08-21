@@ -67,20 +67,20 @@ export class MetricsCollector {
     const token = this.config.meta.pageAccessToken;
     if (!pageId || !token) return;
     try {
+      // Актуальный способ: fan_count напрямую со страницы (page_fans insight устарел)
       const url =
-        `${GRAPH}/${pageId}/insights?metric=page_fans&period=day&` +
+        `${GRAPH}/${pageId}?fields=fan_count,followers_count&` +
         `access_token=${encodeURIComponent(token)}`;
       const res = await fetch(url);
       const data = (await res.json()) as {
-        data?: { values?: { value: number }[] }[];
+        fan_count?: number;
+        followers_count?: number;
         error?: { message: string };
       };
-      if (!res.ok || !data.data) {
+      if (!res.ok || typeof data.fan_count !== "number") {
         throw new Error(`Facebook: ${data.error?.message ?? res.status}`);
       }
-      const values = data.data[0]?.values ?? [];
-      const fans = values.length ? values[values.length - 1].value : 0;
-      m.facebook = { fans };
+      m.facebook = { fans: data.fan_count, followers: data.followers_count };
     } catch (err) {
       logger.warn("Не удалось получить метрики Facebook", err);
     }

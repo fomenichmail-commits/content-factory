@@ -8,6 +8,8 @@ export interface Config {
   telegram: {
     botToken: string;
     channel: string;
+    /** Канал для отчётов по метрикам (по умолчанию channel) */
+    reviewChannel?: string;
   };
   // Meta (опционально: без настроенных токенов Telegram продолжит работать)
   meta: {
@@ -84,6 +86,7 @@ export function loadConfig(): Config {
     telegram: {
       botToken: required("TELEGRAM_BOT_TOKEN", process.env.TELEGRAM_BOT_TOKEN),
       channel: required("TELEGRAM_CHANNEL", process.env.TELEGRAM_CHANNEL),
+      reviewChannel: optional("TELEGRAM_REVIEW_CHANNEL", process.env.TELEGRAM_REVIEW_CHANNEL),
     },
     meta: {
       pageAccessToken: optional("META_PAGE_ACCESS_TOKEN", process.env.META_PAGE_ACCESS_TOKEN),
