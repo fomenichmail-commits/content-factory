@@ -1,10 +1,10 @@
-import { ProxyAgent } from "undici";
 import { logger } from "./logger.js";
 
 const REQUEST_TIMEOUT_MS = 60000;
 
 let cachedProxy: string | undefined;
-let cachedAgent: ProxyAgent | undefined;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedAgent: any;
 
 function getProxyUrl(): string | undefined {
   if (cachedProxy !== undefined) return cachedProxy;
@@ -12,10 +12,12 @@ function getProxyUrl(): string | undefined {
   return cachedProxy;
 }
 
-function getAgent(): ProxyAgent | undefined {
+/** Создать ProxyAgent лениво (undici грузится только если задан прокси). */
+async function getAgent(): Promise<unknown> {
   const proxyUrl = getProxyUrl();
   if (!proxyUrl) return undefined;
   if (!cachedAgent) {
+    const { ProxyAgent } = await import("undici");
     cachedAgent = new ProxyAgent(proxyUrl);
     logger.info("OpenAI-запросы идут через прокси", { proxy: proxyUrl });
   }
@@ -37,7 +39,7 @@ export async function fetchWithProxy(
   url: string,
   init?: RequestInit
 ): Promise<Response> {
-  const agent = getAgent();
+  const agent = await getAgent();
   const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   const merged = init ? { ...init, signal } : { signal };
   if (agent) {
