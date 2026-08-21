@@ -19,7 +19,8 @@ import { logger } from "./utils/logger.js";
 export async function runPipeline(now = new Date()): Promise<PostRecord[]> {
   const config = loadConfig();
   const schedule = loadSchedule();
-  const matches = entriesAt(schedule, now, config.schedule.timezone);
+  const window = Number(process.env.PUBLICATION_WINDOW_MIN ?? 10);
+  const matches = entriesAt(schedule, now, config.schedule.timezone, window);
 
   if (matches.length === 0) {
     logger.info("Сейчас нет запланированных публикаций");

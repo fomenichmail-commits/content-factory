@@ -55,11 +55,14 @@ export function getSchedulePath(): string {
 /**
  * Найти записи расписания, которые «наступили» в заданный момент времени.
  * Сравнение ведётся по часу и минуте (без секунд) в часовом поясе расписания.
+ * Учитывает окно публикации (windowMinutes): если задано, срабатывает в течение
+ * windowMinutes после запланированной минуты — компенсирует задержки cron.
  */
 export function entriesAt(
   schedule: ScheduleFile,
   now: Date,
-  timezone?: string
+  timezone?: string,
+  windowMinutes = 0
 ): { entry: ScheduleEntry; topic: string }[] {
   const tz = schedule.timezone ?? timezone ?? process.env.CONTENT_TIMEZONE;
   const h = getHourInTz(now, tz);
@@ -67,7 +70,17 @@ export function entriesAt(
   const result: { entry: ScheduleEntry; topic: string }[] = [];
 
   for (const entry of schedule.entries) {
-    if (!entry.hours.includes(h) || !entry.minutes.includes(m)) continue;
+    if (!entry.hours.includes(h)) continue;
+    // Совпадение, если текущая минута либо точная, либо в окне после запланированной
+    const minuteMatch = entry.minutes.some((min) => {
+      if (min === m) return true;
+      if (windowMinutes > 0) {
+        const delta = m - min;
+        if (delta >= 0 && delta <= windowMinutes) return true;
+      }
+      return false;
+    });
+    if (!minuteMatch) continue;
     const topics = Array.isArray(entry.topic)
       ? entry.topic
       : [entry.topic];

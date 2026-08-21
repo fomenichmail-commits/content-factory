@@ -11,7 +11,8 @@ import { logger } from "./utils/logger.js";
 async function main(): Promise<void> {
   const schedule = loadSchedule();
   const now = new Date();
-  const matches = entriesAt(schedule, now);
+  const window = Number(process.env.PUBLICATION_WINDOW_MIN ?? 10);
+  const matches = entriesAt(schedule, now, process.env.CONTENT_TIMEZONE, window);
 
   if (matches.length === 0) {
     logger.info("Нет публикаций в текущий момент времени");
