@@ -32,6 +32,9 @@ export class ContentGenerator {
     if (this.config.llm.provider !== "none") {
       try {
         const llmText = await this.generateWithLlm(topic, input.prompt);
+        if (!llmText || !llmText.trim()) {
+          throw new Error("LLM вернул пустой текст");
+        }
         return this.finish(llmText, topic);
       } catch (err) {
         logger.warn("LLM-генерация не удалась, откат на пул/шаблон:", err);
