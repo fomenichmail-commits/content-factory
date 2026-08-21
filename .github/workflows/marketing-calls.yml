@@ -1,0 +1,66 @@
+name: Content Factory — набор вызовов Marketing API
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Сколько вызовов набрать за этот запуск (по умолчанию 500)"
+        required: false
+        default: "500"
+      delay:
+        description: "Пауза между вызовами в мс"
+        required: false
+        default: "500"
+  schedule:
+    # Каждые 10 минут набираем по ~200 вызовов, пока не будет 500+
+    - cron: "*/10 * * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  calls:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: marketing-calls
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Набрать вызовы Marketing API
+        id: calls
+        continue-on-error: true
+        env:
+          META_USER_TOKEN: ${{ secrets.META_USER_TOKEN }}
+          META_AD_ACCOUNT: ${{ secrets.META_AD_ACCOUNT }}
+          MARKETING_CALLS_TARGET: ${{ github.event.inputs.target || '500' }}
+          MARKETING_CALLS_DELAY_MS: ${{ github.event.inputs.delay || '500' }}
+        run: node dist/cli/marketing-calls.js
+
+      - name: Записать прогресс в репозиторий
+        if: always()
+        run: |
+          git config user.name "content-factory"
+          git config user.email "actions@github.com"
+          mkdir -p data
+          echo "{\"updatedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"success\":${{ steps.calls.outputs.MARKETING_CALLS_SUCCESS || 0 }},\"fail\":${{ steps.calls.outputs.MARKETING_CALLS_FAIL || 0 }}}" > data/marketing_calls.json
+          git add data/marketing_calls.json || true
+          if git diff --cached --quiet; then
+            echo "нет изменений"
+          else
+            git commit -m "chore: прогресс Marketing API вызовов"
+            git push
+          fi
