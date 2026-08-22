@@ -1,0 +1,27 @@
+name: Content Factory — проверка генерации (YandexGPT)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  gen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Проверить генерацию через YandexGPT
+        env:
+          CONTENT_LLM_PROVIDER: ${{ vars.CONTENT_LLM_PROVIDER }}
+          YANDEX_MODEL: ${{ vars.YANDEX_MODEL }}
+          YANDEX_API_KEY: ${{ secrets.YANDEX_API_KEY }}
+          YANDEX_FOLDER_ID: ${{ secrets.YANDEX_FOLDER_ID }}
+        run: node dist/generate.js "Проверка генерации через YandexGPT в CI"
