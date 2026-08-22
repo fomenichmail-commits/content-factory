@@ -24,4 +24,6 @@ jobs:
           YANDEX_MODEL: ${{ vars.YANDEX_MODEL }}
           YANDEX_API_KEY: ${{ secrets.YANDEX_API_KEY }}
           YANDEX_FOLDER_ID: ${{ secrets.YANDEX_FOLDER_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
         run: node dist/generate.js "Проверка генерации через YandexGPT в CI"
