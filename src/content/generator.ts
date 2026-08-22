@@ -77,7 +77,37 @@ export class ContentGenerator {
     if (provider === "anthropic") {
       return this.anthropic(base);
     }
+    if (provider === "yandex") {
+      return this.yandex(base);
+    }
     throw new Error(`Неизвестный LLM-провайдер: ${provider}`);
+  }
+
+  /** YandexGPT через OpenAI-совместимый эндпоинт Yandex Cloud. */
+  private async yandex(prompt: string): Promise<string> {
+    const { yandexApiKey, yandexFolderId, yandexModel } = this.config.llm;
+    if (!yandexApiKey) throw new Error("YANDEX_API_KEY не задан");
+    if (!yandexFolderId) throw new Error("YANDEX_FOLDER_ID не задан");
+    const model = `gpt://${yandexFolderId}/${yandexModel}/latest`;
+    const res = await fetchWithProxy(`https://llm.api.cloud.yandex.net/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Api-Key ${yandexApiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 800,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`YandexGPT API ${res.status}: ${await res.text()}`);
+    }
+    const data = (await res.json()) as {
+      choices: { message: { content: string } }[];
+    };
+    return data.choices?.[0]?.message?.content ?? "";
   }
 
   private async openai(prompt: string): Promise<string> {

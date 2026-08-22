@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-export type LlmProvider = "openai" | "anthropic" | "none";
+export type LlmProvider = "openai" | "anthropic" | "yandex" | "none";
 export type ImageStorage = "s3" | "placeholder";
 
 export interface Config {
@@ -26,6 +26,10 @@ export interface Config {
     openaiBaseUrl: string;
     anthropicApiKey?: string;
     anthropicModel: string;
+    /** YandexGPT */
+    yandexApiKey?: string;
+    yandexFolderId?: string;
+    yandexModel: string;
   };
   // Генерация изображений
   image: {
@@ -81,6 +85,8 @@ function optional(name: string, value: string | undefined): string | undefined {
 
 export function loadConfig(): Config {
   const provider = (process.env.CONTENT_LLM_PROVIDER ?? "none") as LlmProvider;
+  const yandexApiKey = optional("YANDEX_API_KEY", process.env.YANDEX_API_KEY);
+  const yandexFolderId = optional("YANDEX_FOLDER_ID", process.env.YANDEX_FOLDER_ID);
 
   return {
     telegram: {
@@ -105,6 +111,10 @@ export function loadConfig(): Config {
       ),
       anthropicModel:
         process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514",
+      // YandexGPT: переиспользует OpenAI-совместимый клиент
+      yandexApiKey: yandexApiKey,
+      yandexFolderId: yandexFolderId,
+      yandexModel: process.env.YANDEX_MODEL ?? "yandexgpt-lite",
     },
     image: {
       enabled: (process.env.IMAGE_GENERATION ?? "off") === "on",
