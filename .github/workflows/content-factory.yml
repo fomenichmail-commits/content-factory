@@ -34,8 +34,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Unit-тесты
-        run: npm run test
+      - name: Unit-тесты с порогом покрытия
+        run: npm run test:coverage
 
       - name: Проверить, есть ли публикация в текущий момент
         id: check
