@@ -1,16 +1,19 @@
 import { describe, it, expect, afterAll } from "vitest";
-import { ContentPool } from "../src/content/pool.js";
-import { readFileSync, existsSync, rmSync } from "node:fs";
+import { ContentPool, addToPool } from "../src/content/pool.js";
+import { readFileSync, existsSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const STATE_DIR = join(ROOT, "data");
 const POOL_STATE_FILE = join(STATE_DIR, "pool_state.json");
+const POOL_FILE = join(ROOT, "content", "pool.json");
+const ORIGINAL_POOL = readFileSync(POOL_FILE, "utf8");
 
-// Чистим состояние пула после тестов, чтобы не засорять проект
+// Чистим состояние пула и восстанавливаем content/pool.json после тестов
 afterAll(() => {
   if (existsSync(POOL_STATE_FILE)) rmSync(POOL_STATE_FILE, { force: true });
+  writeFileSync(POOL_FILE, ORIGINAL_POOL, "utf8");
 });
 
 describe("pool: чтение и трансформация", () => {
@@ -51,4 +54,31 @@ describe("pool: ротация и подбор по теме", () => {
     const picked = pool.pick("неизвестная тема zzz");
     expect(picked).toBeDefined();
   });
+
+  it("ротация: последовательные pick без темы дают разные посты", () => {
+    const pool = new ContentPool();
+    const a = pool.pick();
+    const b = pool.pick();
+    expect(a).toBeDefined();
+    expect(b).toBeDefined();
+    const all = poolAll();
+    const ia = all.findIndex((p) => p.topic === a!.topic);
+    const ib = all.findIndex((p) => p.topic === b!.topic);
+    if (all.length > 1) expect(ia).not.toBe(ib);
+  });
 });
+
+describe("pool: addToPool (запись в файл)", () => {
+  it("добавляет пост в конец пула", () => {
+    const before = poolAll().length;
+    const posts = addToPool({ topic: "Тестовая тема", text: "Тестовый текст #тест" });
+    expect(posts.length).toBe(before + 1);
+    expect(posts[posts.length - 1].topic).toBe("Тестовая тема");
+  });
+});
+
+// Вспомогательная: читает актуальный пул как массив постов
+function poolAll(): any[] {
+  const data = JSON.parse(readFileSync(POOL_FILE, "utf8"));
+  return data.posts;
+}
