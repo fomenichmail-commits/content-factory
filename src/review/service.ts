@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import type { Config } from "../config.js";
 import type { GeneratedPost, Platform, PostRecord } from "../types.js";
-import { fullText } from "../content/text.js";
+import { fullText, truncateForCaption } from "../content/text.js";
 import { resolvePostImage } from "../content/imageSource.js";
 import { requestTelegramApi, requestTelegramApiRaw, type JsonResponse } from "../utils/http.js";
 import { buildMultipart } from "../utils/multipart.js";
@@ -67,14 +67,14 @@ export class ReviewService {
     // Показываем баннер (маскот + текст) прямо на этапе проверки.
     const { image, imageUrl } = await resolvePostImage(this.config, post.title);
 
-    let res: JsonResponse;
+    // Полный текст проверки уходит отдельным сообщением с кнопками:
+    // у фото подпись ограничена 1024 символами (sendPhoto caption limit).
     if (image) {
+      const preview = "🕐 Новый пост на проверку (полный текст ниже)";
       const mp = buildMultipart(
         {
           chat_id: String(this.reviewChannel),
-          caption: text,
-          parse_mode: "HTML",
-          reply_markup: replyMarkup,
+          caption: truncateForCaption(preview),
         },
         {
           name: "photo",
@@ -83,28 +83,28 @@ export class ReviewService {
           data: Buffer.from(image.base64, "base64"),
         }
       );
-      res = await requestTelegramApiRaw(
+      await requestTelegramApiRaw(
         this.token,
         "/sendPhoto",
         "POST",
         mp.buffer,
         mp.contentType
       );
-    } else {
-      res = await requestTelegramApi(this.token, "/sendMessage", "POST", {
-        chat_id: this.reviewChannel,
-        text,
-        parse_mode: "HTML",
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: "✅ Одобрить", callback_data: `approve:${recordId}` },
-              { text: "❌ Отклонить", callback_data: `reject:${recordId}` },
-            ],
-          ],
-        },
-      });
     }
+
+    const res = await requestTelegramApi(this.token, "/sendMessage", "POST", {
+      chat_id: this.reviewChannel,
+      text,
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "✅ Одобрить", callback_data: `approve:${recordId}` },
+            { text: "❌ Отклонить", callback_data: `reject:${recordId}` },
+          ],
+        ],
+      },
+    });
 
     const data = res.body as {
       ok?: boolean;

@@ -1,7 +1,7 @@
 import type { Config } from "../config.js";
 import type { GeneratedPost } from "../types.js";
 import type { GeneratedImage } from "../content/image.js";
-import { fullText } from "../content/text.js";
+import { fullText, splitCaptionAtParagraph } from "../content/text.js";
 import { requestTelegramApi } from "../utils/http.js";
 import { logger } from "../utils/logger.js";
 
@@ -67,16 +67,39 @@ export class TelegramPublisher {
       new Blob([new Uint8Array(bytes)], { type: image.mimeType }),
       `post.${image.ext}`
     );
-    form.append("caption", text);
+    // Подпись к фото ограничена 1024 символами. Если текст длиннее —
+    // первая часть (до границы абзаца) уходит подписью к фото,
+    // остальное отправляется отдельным сообщением (двумя постами).
+    const { first, rest } = splitCaptionAtParagraph(text);
+    form.append("caption", first);
 
     const res = await fetch(`https://api.telegram.org/bot${this.token}/sendPhoto`, {
       method: "POST",
       body: form,
     });
-    return this.handleResult(
+    const photoRes = await this.handleResult(
       { status: res.status, body: await res.json() },
       "Фото опубликовано в Telegram"
     );
+
+    if (rest) {
+      try {
+        const resText = await requestTelegramApi(this.token, "/sendMessage", "POST", {
+          chat_id: this.config.telegram.channel,
+          text: rest,
+          parse_mode: "HTML",
+          disable_web_page_preview: false,
+        });
+        await this.handleResult(
+          { status: resText.status, body: resText.body },
+          "Остальная часть поста опубликована в Telegram"
+        );
+      } catch (err) {
+        logger.warn("Не удалось отправить остальную часть поста", err);
+      }
+    }
+
+    return photoRes;
   }
 
   private async handleResult(
