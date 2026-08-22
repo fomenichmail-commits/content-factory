@@ -1,19 +1,24 @@
 import type { GeneratedPost } from "../types.js";
 
 /**
- * Полный текст поста для публикации: текст + хэштеги.
+ * Полный текст поста для публикации: текст + хэштеги + ссылка на сайт.
  * Хэштеги добавляются только если их ещё нет в тексте (избегаем дублирования).
+ * Ссылка на сайт добавляется в конец (после тегов); по умолчанию https://dataclab.ru/,
+ * можно переопределить через CONTENT_SITE_LINK.
  */
-export function fullText(post: GeneratedPost): string {
+export function fullText(post: GeneratedPost, siteLink = defaultSiteLink()): string {
   const text = post.text.trim();
-  if (!post.hashtags) return text;
-
-  const tags = post.hashtags.split(/\s+/).filter(Boolean);
+  const tags = post.hashtags ? post.hashtags.split(/\s+/).filter(Boolean) : [];
   const inText = new Set(text.match(/#[^\s#]+/g) ?? []);
   const missing = tags.filter((t) => !inText.has(t));
+  const body = missing.length > 0 ? `${text}\n\n${missing.join(" ")}` : text;
+  return siteLink ? `${body}\n\n${siteLink}` : body;
+}
 
-  if (missing.length === 0) return text;
-  return text + "\n\n" + missing.join(" ");
+const DEFAULT_SITE_LINK = "https://dataclab.ru/";
+
+function defaultSiteLink(): string {
+  return process.env.CONTENT_SITE_LINK?.trim() || DEFAULT_SITE_LINK;
 }
 
 /**
