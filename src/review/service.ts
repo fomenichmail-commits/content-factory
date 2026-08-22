@@ -44,7 +44,8 @@ export class ReviewService {
   async publishForReview(
     post: GeneratedPost,
     platforms: Platform[],
-    scheduledFor = new Date().toISOString()
+    scheduledFor = new Date().toISOString(),
+    slotKey?: string
   ): Promise<string> {
     const recordId = randomUUID();
     const text =
@@ -123,6 +124,7 @@ export class ReviewService {
       platforms,
       reviewMessageId: data.result.message_id,
       imageUrl,
+      slotKey,
     };
     addPost(record);
     logger.info("Пост отправлен на проверку", {

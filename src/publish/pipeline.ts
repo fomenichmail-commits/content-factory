@@ -10,6 +10,8 @@ export interface PublishOptions {
   image?: { base64: string; mimeType: string; ext: string };
   imageUrl?: string;
   scheduledFor?: string;
+  /** Ключ слота расписания (для дедупликации пропущенных слотов). */
+  slotKey?: string;
 }
 
 /**
@@ -37,6 +39,7 @@ export async function publishToPlatforms(
       scheduledFor,
       ...post,
       imageUrl: opts.imageUrl,
+      slotKey: opts.slotKey,
     };
     addPost(record);
 

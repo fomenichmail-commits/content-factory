@@ -38,6 +38,8 @@ export interface PostRecord extends GeneratedPost {
   platforms?: Platform[];
   /** message_id в тестовом (ревью) канале */
   reviewMessageId?: number;
+  /** Ключ слота расписания (дата|платформы|чч:мм) для дедупликации catch-up. */
+  slotKey?: string;
 }
 
 /** Шаблон контента для ротации без LLM */
